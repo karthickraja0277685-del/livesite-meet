@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  # Local PostgreSQL database container for development and E2E testing
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: livesite_meet
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d livesite_meet"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Next.js web application container (for running the app locally—never used to run uploaded sites)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgrespassword@db:5432/livesite_meet?schema=public
+      DIRECT_URL: postgresql://postgres:postgrespassword@db:5432/livesite_meet?schema=public
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_SITES_BASE_DOMAIN: sites.localhost:3000
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
+      NEXT_PUBLIC_LIVEKIT_URL: wss://placeholder.livekit.cloud
+      ALLOW_E2E_TEST_AUTH: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+volumes:
+  pgdata:
