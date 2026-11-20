@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedHost } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { validateAndExtractZip } from "@/lib/zip-validator";
 import { createSupabaseServiceClient } from "@/lib/supabase";
-import { deleteMeetingFiles, getLocalTestSiteStore } from "@/lib/cleanup";
+import { getLocalTestSiteStore } from "@/lib/cleanup";
 
 export const runtime = "nodejs";
 
@@ -29,15 +30,26 @@ export async function POST(
     (authUser && authUser.id === meeting.hostId) ||
     hostCookie === meeting.hostId;
 
-  // SECURITY: Strictly verify that ONLY the meeting's host can upload a site ZIP.
-  if (!isAuthorizedHost) {
+  // Allow joined participants (who have a valid session cookie for this meeting) to upload too
+  const sessionCookieId = req.cookies.get(`livesite_session_${meeting.id}`)?.value;
+  const joinedSession = sessionCookieId
+    ? await prisma.attendeeSession.findFirst({
+        where: { id: sessionCookieId, meetingId: meeting.id }
+      })
+    : null;
+
+  // SECURITY: Unauthenticated / non-joined callers are strictly blocked with 403 Forbidden.
+  if (!isAuthorizedHost && !joinedSession) {
     return NextResponse.json(
-      { error: "Forbidden: Only the meeting host can upload a website ZIP." },
+      { error: "Forbidden: Only joined meeting participants or the host can upload a website ZIP." },
       { status: 403 }
     );
   }
 
-  const rate = checkRateLimit(`upload:${meeting.hostId}`, 10, 60 * 60 * 1000);
+  const rateKey = isAuthorizedHost
+    ? `upload:host:${meeting.hostId}`
+    : `upload:session:${joinedSession!.id}`;
+  const rate = checkRateLimit(rateKey, 10, 60 * 60 * 1000);
   if (!rate.allowed) {
     return NextResponse.json(
       { error: "Upload rate limit exceeded. Try again later." },
@@ -62,10 +74,13 @@ export async function POST(
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
-  // Delete any previous site upload for this meeting before storing the new one
-  await deleteMeetingFiles(meeting.id);
-
-  const storagePrefix = `${meeting.hostId}/${meeting.id}/${Date.now()}`;
+  const uploadId = crypto.randomUUID();
+  const uploaderName = joinedSession
+    ? joinedSession.displayName
+    : isAuthorizedHost
+    ? "Host"
+    : "Participant";
+  const storagePrefix = `${meeting.hostId}/${meeting.id}/${uploadId}`;
   const hasRealSupabase =
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
     !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder") &&
@@ -73,7 +88,6 @@ export async function POST(
 
   if (hasRealSupabase) {
     const supabaseAdmin = createSupabaseServiceClient();
-    // Upload raw ZIP to private bucket
     await supabaseAdmin.storage
       .from("meeting-sites")
       .upload(`${storagePrefix}/source.zip`, buffer, {
@@ -81,7 +95,6 @@ export async function POST(
         upsert: true
       });
 
-    // Upload each validated static file
     for (const extracted of validation.files) {
       await supabaseAdmin.storage
         .from("meeting-sites")
@@ -95,14 +108,18 @@ export async function POST(
         );
     }
 
-    // Broadcast to attendees in real time that the new site is ready
     await supabaseAdmin.channel(`meeting:${meeting.id}`).send({
       type: "broadcast",
       event: "site-uploaded",
-      payload: { uploadedAt: Date.now() }
+      payload: {
+        uploadId,
+        uploaderName,
+        fileCount: validation.files.length,
+        totalBytes: validation.totalBytes || 0,
+        createdAt: new Date().toISOString()
+      }
     });
   } else {
-    // Store in local server memory for offline Docker / Playwright E2E runs
     const fileMap = new Map<string, { data: Buffer; contentType: string }>();
     for (const extracted of validation.files) {
       fileMap.set(extracted.relativePath, {
@@ -110,13 +127,16 @@ export async function POST(
         contentType: extracted.contentType
       });
     }
-    getLocalTestSiteStore().set(meeting.id, fileMap);
+    getLocalTestSiteStore().set(`${meeting.id}:${uploadId}`, fileMap);
   }
 
   const uploadRecord = await prisma.siteUpload.create({
     data: {
+      id: uploadId,
       meetingId: meeting.id,
       hostId: meeting.hostId,
+      uploaderName,
+      uploaderSessionId: joinedSession?.id ?? null,
       storagePrefix,
       fileCount: validation.files.length,
       totalBytes: validation.totalBytes || 0,
@@ -124,15 +144,20 @@ export async function POST(
     }
   });
 
-  await prisma.meeting.update({
-    where: { id: meeting.id },
-    data: { activeUploadId: uploadRecord.id }
-  });
+  // Set default activeUploadId if none is set yet, or when the host uploads
+  if (!meeting.activeUploadId || isAuthorizedHost) {
+    await prisma.meeting.update({
+      where: { id: meeting.id },
+      data: { activeUploadId: uploadRecord.id }
+    });
+  }
 
   return NextResponse.json({
     ok: true,
     uploadId: uploadRecord.id,
+    uploaderName: uploadRecord.uploaderName,
     fileCount: uploadRecord.fileCount,
-    totalBytes: uploadRecord.totalBytes
+    totalBytes: uploadRecord.totalBytes,
+    createdAt: uploadRecord.createdAt
   });
 }

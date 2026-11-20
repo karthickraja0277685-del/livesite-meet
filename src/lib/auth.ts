@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 const DEMO_USER_ID = "00000000-0000-4000-8000-000000000001";
 const DEMO_USER_EMAIL = "demo-host@livesite.local";
 
+// Resolves the authenticated host user (supports demo login and test header in non-production mode)
 export async function getAuthenticatedHost(req: NextRequest) {
   if (
     process.env.NODE_ENV !== "production" &&
@@ -53,4 +54,4 @@ export async function getAuthenticatedHost(req: NextRequest) {
       name: user.user_metadata?.full_name || null
     }
   });
-} 
+}

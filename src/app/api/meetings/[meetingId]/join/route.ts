@@ -11,7 +11,19 @@ export async function POST(
   { params }: { params: { meetingId: string } }
 ) {
   const meeting = await prisma.meeting.findUnique({
-    where: { id: params.meetingId }
+    where: { id: params.meetingId },
+    include: {
+      uploads: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          uploaderName: true,
+          fileCount: true,
+          totalBytes: true,
+          createdAt: true
+        }
+      }
+    }
   });
 
   if (!meeting) {
@@ -71,17 +83,29 @@ export async function POST(
   const sitesBaseDomain =
     process.env.NEXT_PUBLIC_SITES_BASE_DOMAIN || "sites.localhost:3000";
   const protocol = sitesBaseDomain.includes("localhost") ? "http" : "https";
-  const iframeUrl = `${protocol}://${sessionSubdomain}.${sitesBaseDomain}/index.html`;
+  const iframeBaseUrl = `${protocol}://${sessionSubdomain}.${sitesBaseDomain}`;
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     sessionId: attendeeSession.id,
     sessionSubdomain,
-    iframeUrl,
+    iframeUrl: `${iframeBaseUrl}/index.html`,
+    iframeBaseUrl,
     isHost: Boolean(isHost),
     displayName,
     livekitToken,
     livekitUrl: process.env.NEXT_PUBLIC_LIVEKIT_URL || "wss://placeholder.livekit.cloud",
     hasActiveSite: Boolean(meeting.activeUploadId),
+    activeUploadId: meeting.activeUploadId,
+    uploads: meeting.uploads,
     meetingStatus: meeting.status
   });
+
+  // Store HttpOnly session cookie so joined participants can upload their own sites
+  response.cookies.set(`livesite_session_${meeting.id}`, attendeeSession.id, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/"
+  });
+
+  return response;
 }
