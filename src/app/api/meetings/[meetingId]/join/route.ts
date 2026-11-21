@@ -83,7 +83,10 @@ export async function POST(
   const sitesBaseDomain =
     process.env.NEXT_PUBLIC_SITES_BASE_DOMAIN || "sites.localhost:3000";
   const protocol = sitesBaseDomain.includes("localhost") ? "http" : "https";
-  const iframeBaseUrl = `${protocol}://${sessionSubdomain}.${sitesBaseDomain}`;
+  const singleHostMode = process.env.NEXT_PUBLIC_SITES_SINGLE_HOST === "true";
+  const iframeBaseUrl = singleHostMode
+    ? `${protocol}://${sitesBaseDomain}/s/${sessionSubdomain}`
+    : `${protocol}://${sessionSubdomain}.${sitesBaseDomain}`;
 
   const response = NextResponse.json({
     sessionId: attendeeSession.id,

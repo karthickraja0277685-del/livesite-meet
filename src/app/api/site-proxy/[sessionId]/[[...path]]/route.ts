@@ -16,11 +16,16 @@ export async function GET(
     process.env.NEXT_PUBLIC_SITES_BASE_DOMAIN || "sites.localhost:3000"
   ).toLowerCase();
 
-  // Defense-in-depth: verify the request arrived on a wildcard session subdomain,
+  const singleHostMode = process.env.NEXT_PUBLIC_SITES_SINGLE_HOST === "true";
+  const isAllowedSiteHost =
+    hostHeader.endsWith(`.${sitesBaseDomain}`) ||
+    (singleHostMode && hostHeader === sitesBaseDomain);
+
+  // Defense-in-depth: verify the request arrived on the isolated sites host/subdomain,
   // never on the main app domain.
-  if (!hostHeader.endsWith(`.${sitesBaseDomain}`)) {
+  if (!isAllowedSiteHost) {
     return new NextResponse(
-      "Forbidden: Presented sites are only served from isolated wildcard subdomains.",
+      "Forbidden: Presented sites are only served from isolated site origins.",
       { status: 403 }
     );
   }

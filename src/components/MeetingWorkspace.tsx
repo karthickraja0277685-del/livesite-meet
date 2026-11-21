@@ -406,7 +406,11 @@ export function MeetingWorkspace({
               src={activeIframeSrc}
               title="Isolated Live Website Session"
               data-testid="isolated-site-iframe"
-              sandbox="allow-scripts allow-forms allow-same-origin allow-modals"
+              sandbox={
+                process.env.NEXT_PUBLIC_SITES_SINGLE_HOST === "true"
+                  ? "allow-scripts allow-forms allow-modals"
+                  : "allow-scripts allow-forms allow-same-origin allow-modals"
+              }
               className="h-full w-full border-0 bg-white"
             />
           ) : (
