@@ -86,7 +86,7 @@ export async function GET(
     const { data, error } = await supabaseAdmin.storage
       .from("meeting-sites")
       .download(`${upload.storagePrefix}/extracted/${normalizedPath}`);
-    if (error) { return new NextResponse(Storage error: \, { status: 500 }); } if (data) {
+    if (error) { return new NextResponse("Storage error: " + error.message, { status: 500 }); } if (data) {
       fileBuffer = Buffer.from(await data.arrayBuffer());
     }
   }
