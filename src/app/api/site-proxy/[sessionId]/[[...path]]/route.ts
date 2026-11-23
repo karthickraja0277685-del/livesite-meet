@@ -86,7 +86,7 @@ export async function GET(
     const { data, error } = await supabaseAdmin.storage
       .from("meeting-sites")
       .download(`${upload.storagePrefix}/extracted/${normalizedPath}`);
-    if (error) { return new NextResponse("Storage error: " + error.message, { status: 500 }); } if (data) {
+    if (error) { const k = process.env.SUPABASE_SERVICE_ROLE_KEY || ""; let role = k.slice(0, 10); try { role = JSON.parse(Buffer.from(k.split(".")[1] || "", "base64").toString()).role || role; } catch {} return new NextResponse("Storage error: " + error.message + " | url=" + process.env.NEXT_PUBLIC_SUPABASE_URL + " | role=" + role, { status: 500 }); } if (data) {
       fileBuffer = Buffer.from(await data.arrayBuffer());
     }
   }
