@@ -8,7 +8,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
-  const rate = checkRateLimit(`waitlist:${ip}`, 5, 60 * 60 * 1000); // Max 5 signups per hour per IP
+  const rate = await checkRateLimit(`waitlist:${ip}`, 5, 60 * 60 * 1000); // Max 5 signups per hour per IP
 
   if (!rate.allowed) {
     return NextResponse.json(

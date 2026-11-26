@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { FluidInkCanvas } from "@/components/FluidInkCanvas";
+import { SiteNavbar } from "@/components/SiteNavbar";
 
 const HEADING_WORDS = [
   "Present",
@@ -60,28 +61,7 @@ export default function LandingPage() {
         className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_center,rgba(5,5,8,0.78)_0%,rgba(5,5,8,0.45)_55%,rgba(5,5,8,0.88)_100%)]"
       />
 
-      {/* Top Navigation */}
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
-        <Link href="/" className="text-lg font-bold tracking-tight">
-          LiveSite Meet
-        </Link>
-
-        <nav className="hidden md:flex items-center gap-6 rounded-full border border-white/15 bg-white/5 px-5 py-2 text-sm text-neutral-200 backdrop-blur-md">
-          <Link href="/dashboard" className="hover:text-white transition-colors">
-            Host Dashboard
-          </Link>
-          <Link href="/login" className="hover:text-white transition-colors">
-            Sign In
-          </Link>
-        </nav>
-
-        <Link
-          href="/login"
-          className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-neutral-200"
-        >
-          Get Started
-        </Link>
-      </header>
+      <SiteNavbar />
 
       {/* Main Hero Section */}
       <main className="mx-auto flex max-w-4xl flex-col items-center px-6 text-center my-auto py-16">
