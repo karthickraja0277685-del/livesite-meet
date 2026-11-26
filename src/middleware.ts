@@ -1,35 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Supports two isolation modes:
-// 1. Wildcard mode (local `*.sites.localhost:3000` or custom domain `*.sites.yourdomain.com`)
-// 2. Single-host opaque mode (`NEXT_PUBLIC_SITES_SINGLE_HOST=true` on a separate free Vercel URL
-//    like `livesite-meet-sites.vercel.app`, serving `/s/{sessionSubdomain}/...` inside an opaque sandbox)
+// Concept: Wildcard Subdomain Isolation
+// Every attendee loads the presented website from `{sessionSubdomain}.sites.example.com`
+// (or `{sessionSubdomain}.sites.localhost:3000` in local dev).
+// Because browsers isolate cookies, localStorage, IndexedDB, and DOM access by origin
+// (scheme + hostname + port), two attendees on different subdomains can never read
+// or overwrite each other's state—and neither can touch the main app origin!
 
 export function middleware(req: NextRequest) {
   const hostHeader = (req.headers.get("host") || "").toLowerCase();
   const sitesBaseDomain = (
     process.env.NEXT_PUBLIC_SITES_BASE_DOMAIN || "sites.localhost:3000"
   ).toLowerCase();
-  const singleHostMode = process.env.NEXT_PUBLIC_SITES_SINGLE_HOST === "true";
 
+  // Block direct access to `/api/site-proxy` from the main app domain so presented
+  // sites are NEVER served from the main application's origin.
   const isWildcardSiteHost =
     hostHeader.endsWith(`.${sitesBaseDomain}`) && hostHeader !== sitesBaseDomain;
-  const isDedicatedSingleSiteHost =
-    singleHostMode && hostHeader === sitesBaseDomain;
 
-  // Never serve `/api/site-proxy` from the main app origin
-  if (
-    !isWildcardSiteHost &&
-    !isDedicatedSingleSiteHost &&
-    req.nextUrl.pathname.startsWith("/api/site-proxy")
-  ) {
+  if (!isWildcardSiteHost && req.nextUrl.pathname.startsWith("/api/site-proxy")) {
     return new NextResponse(
       "Forbidden: Presented sites are never served from the main app origin.",
       { status: 403 }
     );
   }
 
-  // Mode 1: Wildcard subdomain `{sessionSubdomain}.sites.*`
+  // If the request arrives on `{sessionSubdomain}.sites.example.com/path`,
+  // internally rewrite it to `/api/site-proxy/{sessionSubdomain}/path`.
   if (isWildcardSiteHost) {
     const sessionSubdomain = hostHeader.slice(0, -(sitesBaseDomain.length + 1));
     if (!/^[a-z0-9-]+$/.test(sessionSubdomain)) {
@@ -40,22 +37,6 @@ export function middleware(req: NextRequest) {
     const rewriteUrl = req.nextUrl.clone();
     rewriteUrl.pathname = `/api/site-proxy/${sessionSubdomain}${pathname}`;
     return NextResponse.rewrite(rewriteUrl);
-  }
-
-  // Mode 2: Dedicated free sites host `{sitesBaseDomain}/s/{sessionSubdomain}/...`
-  if (isDedicatedSingleSiteHost) {
-    const match = req.nextUrl.pathname.match(/^\/s\/([a-z0-9-]+)(\/.*)?$/);
-    if (match) {
-      const sessionSubdomain = match[1];
-      const restPath = !match[2] || match[2] === "/" ? "/index.html" : match[2];
-      const rewriteUrl = req.nextUrl.clone();
-      rewriteUrl.pathname = `/api/site-proxy/${sessionSubdomain}${restPath}`;
-      return NextResponse.rewrite(rewriteUrl);
-    }
-    if (req.nextUrl.pathname.startsWith("/api/site-proxy")) {
-      return NextResponse.next();
-    }
-    return new NextResponse("Sites host only serves /s/{sessionId}/...", { status: 404 });
   }
 
   return NextResponse.next();

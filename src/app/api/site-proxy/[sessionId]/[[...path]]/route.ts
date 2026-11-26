@@ -16,16 +16,11 @@ export async function GET(
     process.env.NEXT_PUBLIC_SITES_BASE_DOMAIN || "sites.localhost:3000"
   ).toLowerCase();
 
-  const singleHostMode = process.env.NEXT_PUBLIC_SITES_SINGLE_HOST === "true";
-  const isAllowedSiteHost =
-    hostHeader.endsWith(`.${sitesBaseDomain}`) ||
-    (singleHostMode && hostHeader === sitesBaseDomain);
-
-  // Defense-in-depth: verify the request arrived on the isolated sites host/subdomain,
+  // Defense-in-depth: verify the request arrived on a wildcard session subdomain,
   // never on the main app domain.
-  if (!isAllowedSiteHost) {
+  if (!hostHeader.endsWith(`.${sitesBaseDomain}`)) {
     return new NextResponse(
-      "Forbidden: Presented sites are only served from isolated site origins.",
+      "Forbidden: Presented sites are only served from isolated wildcard subdomains.",
       { status: 403 }
     );
   }
@@ -36,16 +31,11 @@ export async function GET(
     include: { meeting: true }
   });
 
-  if (!attendeeSession || attendeeSession.meeting.status !== "ACTIVE") {
-    return new NextResponse("No active site for this session.", { status: 404 });
-  }
-
-  // Allow each viewer to independently select any upload in this meeting via ?uploadId=...
-  const requestedUploadId =
-    req.nextUrl.searchParams.get("uploadId") ||
-    attendeeSession.meeting.activeUploadId;
-
-  if (!requestedUploadId) {
+  if (
+    !attendeeSession ||
+    attendeeSession.meeting.status !== "ACTIVE" ||
+    !attendeeSession.meeting.activeUploadId
+  ) {
     return new NextResponse("No active site for this session.", { status: 404 });
   }
 
@@ -57,11 +47,8 @@ export async function GET(
     return new NextResponse("Invalid file path.", { status: 400 });
   }
 
-  const upload = await prisma.siteUpload.findFirst({
-    where: {
-      id: requestedUploadId,
-      meetingId: attendeeSession.meetingId
-    }
+  const upload = await prisma.siteUpload.findUnique({
+    where: { id: attendeeSession.meeting.activeUploadId }
   });
 
   if (!upload) {
@@ -71,10 +58,7 @@ export async function GET(
   const contentType = mime.lookup(normalizedPath) || "application/octet-stream";
   let fileBuffer: Buffer | null = null;
 
-  const store = getLocalTestSiteStore();
-  const localStore =
-    store.get(`${attendeeSession.meetingId}:${upload.id}`) ||
-    store.get(attendeeSession.meetingId);
+  const localStore = getLocalTestSiteStore().get(attendeeSession.meetingId);
   if (localStore && localStore.has(normalizedPath)) {
     fileBuffer = localStore.get(normalizedPath)!.data;
   } else if (
@@ -86,7 +70,7 @@ export async function GET(
     const { data, error } = await supabaseAdmin.storage
       .from("meeting-sites")
       .download(`${upload.storagePrefix}/extracted/${normalizedPath}`);
-    if (error) { const k = process.env.SUPABASE_SERVICE_ROLE_KEY || ""; let role = k.slice(0, 10); try { role = JSON.parse(Buffer.from(k.split(".")[1] || "", "base64").toString()).role || role; } catch {} return new NextResponse("Storage error: " + error.message + " | url=" + process.env.NEXT_PUBLIC_SUPABASE_URL + " | role=" + role, { status: 500 }); } if (data) {
+    if (!error && data) {
       fileBuffer = Buffer.from(await data.arrayBuffer());
     }
   }
@@ -102,6 +86,7 @@ export async function GET(
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "no-referrer",
       "Cache-Control": "no-store",
+      // Allow scripts/forms inside the isolated subdomain while restricting external framing
       "Content-Security-Policy":
         "default-src 'self' 'unsafe-inline' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self';"
     }

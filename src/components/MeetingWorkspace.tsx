@@ -28,26 +28,15 @@ interface MeetingWorkspaceProps {
   meetingTitle: string;
 }
 
-interface SiteUploadSummary {
-  id: string;
-  uploaderName: string;
-  fileCount: number;
-  totalBytes: number;
-  createdAt: string;
-}
-
 interface JoinResponse {
   sessionId: string;
   sessionSubdomain: string;
   iframeUrl: string;
-  iframeBaseUrl: string;
   isHost: boolean;
   displayName: string;
   livekitToken: string;
   livekitUrl: string;
   hasActiveSite: boolean;
-  activeUploadId: string | null;
-  uploads: SiteUploadSummary[];
   meetingStatus: "ACTIVE" | "ENDED";
 }
 
@@ -153,8 +142,6 @@ export function MeetingWorkspace({
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
 
-  const [uploads, setUploads] = useState<SiteUploadSummary[]>([]);
-  const [selectedUploadId, setSelectedUploadId] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [iframeVersion, setIframeVersion] = useState(1);
@@ -171,13 +158,11 @@ export function MeetingWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ displayName: guestName || "Guest Attendee" })
       });
-      const data: JoinResponse & { error?: string } = await res.json();
+      const data = await res.json();
       if (!res.ok) {
         setJoinError(data.error || "Could not join meeting.");
       } else {
         setSession(data);
-        setUploads(data.uploads || []);
-        setSelectedUploadId(data.activeUploadId || data.uploads?.[0]?.id || null);
         if (data.meetingStatus === "ENDED") {
           setMeetingEnded(true);
         }
@@ -198,24 +183,7 @@ export function MeetingWorkspace({
     const supabase = createSupabaseBrowserClient();
     const channel = supabase
       .channel(`meeting:${meetingId}`)
-      .on("broadcast", { event: "site-uploaded" }, ({ payload }) => {
-        if (payload?.uploadId) {
-          setUploads((prev) => {
-            if (prev.some((u) => u.id === payload.uploadId)) return prev;
-            return [
-              {
-                id: payload.uploadId,
-                uploaderName: payload.uploaderName || "Participant",
-                fileCount: payload.fileCount || 0,
-                totalBytes: payload.totalBytes || 0,
-                createdAt: payload.createdAt || new Date().toISOString()
-              },
-              ...prev
-            ];
-          });
-          // Automatically show the first site if the viewer hasn't picked one yet
-          setSelectedUploadId((current) => current || payload.uploadId);
-        }
+      .on("broadcast", { event: "site-uploaded" }, () => {
         setSession((prev) => (prev ? { ...prev, hasActiveSite: true } : prev));
         setIframeVersion((v) => v + 1);
       })
@@ -249,18 +217,7 @@ export function MeetingWorkspace({
         setUploadError(data.error || "Upload failed.");
         setUploadStatus(null);
       } else {
-        const newUpload: SiteUploadSummary = {
-          id: data.uploadId,
-          uploaderName: data.uploaderName || session.displayName,
-          fileCount: data.fileCount,
-          totalBytes: data.totalBytes,
-          createdAt: data.createdAt || new Date().toISOString()
-        };
-        setUploads((prev) => [newUpload, ...prev]);
-        setSelectedUploadId(newUpload.id);
-        setUploadStatus(
-          `Uploaded ${data.fileCount} files (${Math.round(data.totalBytes / 1024)} KB)`
-        );
+        setUploadStatus(`Uploaded ${data.fileCount} files (${Math.round(data.totalBytes / 1024)} KB)`);
         setSession((prev) => (prev ? { ...prev, hasActiveSite: true } : prev));
         setIframeVersion((v) => v + 1);
       }
@@ -329,16 +286,12 @@ export function MeetingWorkspace({
     );
   }
 
-  const activeIframeSrc = selectedUploadId
-    ? `${session.iframeUrl}?uploadId=${selectedUploadId}&v=${iframeVersion}`
-    : `${session.iframeUrl}?v=${iframeVersion}`;
-
   return (
     <div className="flex flex-col lg:flex-row h-screen w-screen overflow-hidden bg-[#050508] text-white">
       {/* MAIN AREA: Independent Sandboxed Website Session */}
       <main className="relative flex-1 flex flex-col h-full overflow-hidden border-b lg:border-b-0 lg:border-r border-white/10">
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-neutral-950 px-4 py-2.5">
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2.5">
             <Globe className="h-4 w-4 text-cyan-400" />
             <span className="font-semibold text-sm">{meetingTitle}</span>
             <span
@@ -347,70 +300,52 @@ export function MeetingWorkspace({
             >
               Isolated Origin: {session.sessionSubdomain}
             </span>
-
-            {uploads.length > 0 && (
-              <select
-                aria-label="Select shared website"
-                value={selectedUploadId || ""}
-                onChange={(e) => {
-                  setSelectedUploadId(e.target.value);
-                  setIframeVersion((v) => v + 1);
-                }}
-                data-testid="site-switcher-select"
-                className="rounded-lg border border-white/15 bg-neutral-900 px-2.5 py-1 text-xs text-white focus:outline-none"
-              >
-                {uploads.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.uploaderName}&apos;s Site ({u.fileCount} files)
-                  </option>
-                ))}
-              </select>
-            )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-neutral-200">
-              <Upload className="h-3.5 w-3.5" />
-              <span>Upload Site ZIP</span>
-              <input
-                type="file"
-                accept=".zip"
-                onChange={handleZipUpload}
-                className="hidden"
-                data-testid="host-zip-input"
-              />
-            </label>
-            {uploadStatus && (
-              <span
-                className="text-xs text-emerald-400"
-                data-testid="upload-status-msg"
-              >
-                {uploadStatus}
-              </span>
-            )}
-            {uploadError && (
-              <span
-                className="text-xs text-red-400"
-                data-testid="upload-error-msg"
-              >
-                {uploadError}
-              </span>
-            )}
-          </div>
+          {session.isHost && (
+            <div className="flex items-center gap-3">
+              <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-neutral-200">
+                <Upload className="h-3.5 w-3.5" />
+                <span>Upload Site ZIP</span>
+                <input
+                  type="file"
+                  accept=".zip"
+                  onChange={handleZipUpload}
+                  className="hidden"
+                  data-testid="host-zip-input"
+                />
+              </label>
+              {uploadStatus && (
+                <span
+                  className="text-xs text-emerald-400"
+                  data-testid="upload-status-msg"
+                >
+                  {uploadStatus}
+                </span>
+              )}
+              {uploadError && (
+                <span
+                  className="text-xs text-red-400"
+                  data-testid="upload-error-msg"
+                >
+                  {uploadError}
+                </span>
+              )}
+            </div>
+          )}
         </header>
 
         <div className="flex-1 bg-neutral-900 relative">
-          {session.hasActiveSite || uploads.length > 0 ? (
+          {session.hasActiveSite ? (
             <iframe
-              key={`${selectedUploadId}-${iframeVersion}`}
-              src={activeIframeSrc}
+              key={iframeVersion}
+              src={`${session.iframeUrl}?v=${iframeVersion}`}
               title="Isolated Live Website Session"
               data-testid="isolated-site-iframe"
-              sandbox={
-                process.env.NEXT_PUBLIC_SITES_SINGLE_HOST === "true"
-                  ? "allow-scripts allow-forms allow-modals"
-                  : "allow-scripts allow-forms allow-same-origin allow-modals"
-              }
+              // Security: `allow-scripts allow-forms allow-same-origin allow-modals` lets the static site
+              // use its own localStorage/cookies on its unique `{sessionSubdomain}.sites.*` origin
+              // while blocking popups, top-window redirects, and pointer lock.
+              sandbox="allow-scripts allow-forms allow-same-origin allow-modals"
               className="h-full w-full border-0 bg-white"
             />
           ) : (
@@ -419,7 +354,9 @@ export function MeetingWorkspace({
                 No website uploaded yet
               </p>
               <p className="text-xs max-w-sm">
-                Click &apos;Upload Site ZIP&apos; above to share a static website containing an index.html file—everyone gets their own independent live session.
+                {session.isHost
+                  ? "Click 'Upload Site ZIP' above to upload a static website containing an index.html file."
+                  : "Waiting for the host to upload and present the live website."}
               </p>
             </div>
           )}
@@ -433,9 +370,8 @@ export function MeetingWorkspace({
             serverUrl={session.livekitUrl}
             token={session.livekitToken}
             connect={true}
-            video={false}
-            audio={false}
-            onError={(err) => console.warn("LiveKit connection:", err.message)}
+            video={true}
+            audio={true}
             className="flex flex-col flex-1 justify-between gap-4"
           >
             <div className="rounded-xl overflow-hidden border border-white/10 bg-black flex-1 min-h-[220px]">
@@ -449,6 +385,7 @@ export function MeetingWorkspace({
             />
           </LiveKitRoom>
         ) : (
+          // Local / E2E Test fallback when LiveKit Cloud URL is not configured
           <div className="flex flex-col flex-1 justify-between gap-4">
             <div className="rounded-xl border border-white/10 bg-neutral-900 p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-2">

@@ -7,8 +7,7 @@ const globalForCleanup = globalThis as unknown as {
   localTestSiteMemory: LocalSiteStore | undefined;
 };
 
-// Local fallback memory cache shared across all routes via globalThis.
-// Keys are `${meetingId}:${uploadId}` so multiple participants can share sites simultaneously.
+// Local fallback memory cache shared across all routes via globalThis
 const localTestSiteMemory: LocalSiteStore =
   globalForCleanup.localTestSiteMemory ?? new Map();
 
@@ -26,11 +25,7 @@ export async function deleteMeetingFiles(meetingId: string): Promise<void> {
     where: { meetingId }
   });
 
-  for (const key of Array.from(localTestSiteMemory.keys())) {
-    if (key === meetingId || key.startsWith(`${meetingId}:`)) {
-      localTestSiteMemory.delete(key);
-    }
-  }
+  localTestSiteMemory.delete(meetingId);
 
   if (
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
