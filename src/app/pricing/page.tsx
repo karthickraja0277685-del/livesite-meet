@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
@@ -195,7 +195,7 @@ export default function PricingPage() {
                 <div className="mt-6">
                   {currentPlan ? (
                     <Button
-                      variant={isCurrent ? "outline" : "primary"}
+                      variant={isCurrent ? "outline" : "default"}
                       className="w-full"
                       disabled={isCurrent || switching === p.tier}
                       onClick={() => handleSwitch(p.tier)}

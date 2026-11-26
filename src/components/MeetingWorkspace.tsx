@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
@@ -973,7 +973,7 @@ export function MeetingWorkspace({
 
           {inviteToken && (
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
-              Personal invite link detected — single-device verified entry.
+              Personal invite link detected â€” single-device verified entry.
             </div>
           )}
 
@@ -1015,7 +1015,7 @@ export function MeetingWorkspace({
               href="/login"
               className="block w-full rounded-lg border border-indigo-400/40 bg-indigo-500/20 px-4 py-2.5 text-center text-xs font-semibold text-indigo-200 hover:bg-indigo-500/30"
             >
-              Sign In with Approved Email →
+              Sign In with Approved Email â†’
             </a>
           )}
 
@@ -1054,7 +1054,7 @@ export function MeetingWorkspace({
           <span className="text-neutral-100">{toast.text}</span>
           {toast.uploadId && (
             <Button
-              variant="primary"
+              variant="default"
               className="h-7 px-2.5 text-xs"
               onClick={() => {
                 setStageMode("SITE");
@@ -1091,7 +1091,7 @@ export function MeetingWorkspace({
                 </div>
               )}
               <div className="flex gap-2 pt-2">
-                <Button variant="primary" className="flex-1" onClick={handleCopyInvite}>
+                <Button variant="default" className="flex-1" onClick={handleCopyInvite}>
                   {copiedLink ? "Copied Link!" : "Copy Public Link"}
                 </Button>
                 <Button variant="outline" onClick={() => setShowQrModal(false)}>
@@ -1285,7 +1285,7 @@ export function MeetingWorkspace({
                 )}
               </Button>
               <Button
-                variant={safeMode ? "primary" : "outline"}
+                variant={safeMode ? "default" : "outline"}
                 onClick={() => handleToggleSecurity("toggle_safe_mode")}
                 className="h-8 px-2.5 text-xs"
                 title="Class Safe Mode: Host-only uploads & muted on join"
@@ -1435,7 +1435,7 @@ export function MeetingWorkspace({
 
             {/* Quick Reactions & Raise Hand */}
             <div className="flex items-center gap-1.5">
-              {["👍", "👏", "🔥", "❤️", "❓"].map((em) => (
+              {["ðŸ‘", "ðŸ‘", "ðŸ”¥", "â¤ï¸", "â“"].map((em) => (
                 <button
                   key={em}
                   onClick={() => handleSendReaction(em)}
@@ -1445,7 +1445,7 @@ export function MeetingWorkspace({
                 </button>
               ))}
               <Button
-                variant={handRaised ? "primary" : "outline"}
+                variant={handRaised ? "default" : "outline"}
                 onClick={() => handleToggleHand()}
                 className="h-7 px-2.5 text-xs ml-1"
               >
@@ -1483,7 +1483,7 @@ export function MeetingWorkspace({
                   Upload a <strong>.pdf</strong> slide deck using <strong>PDF Slides</strong> in the header to present slides first and switch to your live website in one click.
                 </p>
                 <p className="text-[11px] text-neutral-500">
-                  Tip: In PowerPoint, Canva, or Google Slides, click <strong>File → Save as PDF</strong> so fonts and layouts stay 100% exact.
+                  Tip: In PowerPoint, Canva, or Google Slides, click <strong>File â†’ Save as PDF</strong> so fonts and layouts stay 100% exact.
                 </p>
               </div>
             )
@@ -1787,7 +1787,7 @@ export function MeetingWorkspace({
                       <div className="flex items-center justify-between text-[11px] text-neutral-400">
                         <span className="font-semibold text-emerald-300">{n.authorName}</span>
                         <span>
-                          {n.pagePath} · {n.viewport}
+                          {n.pagePath} Â· {n.viewport}
                         </span>
                       </div>
                       <p className="text-neutral-200 break-words">{n.content}</p>

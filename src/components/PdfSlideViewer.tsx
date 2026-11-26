@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, FileText } from "lucide-react";
@@ -130,11 +130,11 @@ export default function PdfSlideViewer({
           </Button>
           {hasActiveSite && onSwitchToSite && (
             <Button
-              variant="primary"
+              variant="default"
               onClick={onSwitchToSite}
               className="h-8 px-3 text-xs"
             >
-              Switch to Live Website →
+              Switch to Live Website â†’
             </Button>
           )}
         </div>
