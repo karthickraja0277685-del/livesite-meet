@@ -9,6 +9,7 @@ export default function ContactPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [websiteTrap, setWebsiteTrap] = useState("");
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -20,7 +21,7 @@ export default function ContactPage() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, message })
+        body: JSON.stringify({ name, email, message, website: websiteTrap })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -69,6 +70,16 @@ export default function ContactPage() {
 
         <Card className="md:col-span-3">
           <form onSubmit={handleSubmit} className="space-y-4">
+            <input
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              aria-hidden="true"
+              value={websiteTrap}
+              onChange={(e) => setWebsiteTrap(e.target.value)}
+              className="sr-only"
+            />
             <div>
               <label className="block text-xs font-medium text-neutral-300 mb-1">
                 Your Name

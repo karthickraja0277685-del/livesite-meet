@@ -17,11 +17,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { email?: string };
+  let body: { email?: string; website?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  if (typeof body.website === "string" && body.website.trim().length > 0) {
+    return NextResponse.json({ ok: true });
   }
 
   const email = (body.email || "").trim().toLowerCase();

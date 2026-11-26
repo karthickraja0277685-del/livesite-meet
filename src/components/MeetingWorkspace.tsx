@@ -243,6 +243,7 @@ export function MeetingWorkspace({
   meetingTitle
 }: MeetingWorkspaceProps) {
   const [guestName, setGuestName] = useState("");
+  const [websiteTrap, setWebsiteTrap] = useState("");
   const [passcodeInput, setPasscodeInput] = useState("");
   const [requiresPasscode, setRequiresPasscode] = useState(false);
   const [requiresAuth, setRequiresAuth] = useState(false);
@@ -379,7 +380,8 @@ export function MeetingWorkspace({
         body: JSON.stringify({
           displayName: guestName || "Guest Attendee",
           passcode: passcodeInput || undefined,
-          inviteToken: inviteToken || undefined
+          inviteToken: inviteToken || undefined,
+          website: websiteTrap
         })
       });
       const data: JoinResponse & {
@@ -982,6 +984,16 @@ export function MeetingWorkspace({
             value={guestName}
             onChange={(e) => setGuestName(e.target.value)}
             data-testid="guest-name-input"
+          />
+          <input
+            type="text"
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            value={websiteTrap}
+            onChange={(e) => setWebsiteTrap(e.target.value)}
+            className="sr-only"
             className="w-full rounded-lg border border-white/15 bg-black/50 px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
 

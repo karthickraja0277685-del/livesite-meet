@@ -16,6 +16,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
+
+  // Honeypot anti-bot trap: real users never fill this hidden field
+  if (typeof body.website === "string" && body.website.trim().length > 0) {
+    return NextResponse.json({ ok: true, receivedAt: new Date().toISOString() });
+  }
+
   const name = String(body.name || "").trim().slice(0, 80);
   const email = String(body.email || "").trim().slice(0, 254);
   const message = String(body.message || "").trim().slice(0, 1500);

@@ -4,6 +4,7 @@ import { getAuthenticatedHost } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { purgeExpiredMeetings } from "@/lib/cleanup";
 import { getPlanConfig } from "@/lib/plans";
+import { hashPasscode } from "@/lib/passcode";
 
 export const runtime = "nodejs";
 
@@ -63,8 +64,8 @@ export async function POST(req: NextRequest) {
   }
 
   const rawPasscode = typeof body.passcode === "string" ? body.passcode.trim() : "";
-  const passcode = rawPasscode ? rawPasscode.slice(0, 12) : null;
-  if (passcode && !planConfig.allowPasscode) {
+  const passcodePlain = rawPasscode ? rawPasscode.slice(0, 12) : null;
+  if (passcodePlain && !planConfig.allowPasscode) {
     return NextResponse.json(
       { error: "Meeting passcodes require Plus or Pro plan." },
       { status: 403 }
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
     data: {
       title,
       hostId: host.id,
-      passcode,
+      passcode: passcodePlain ? hashPasscode(passcodePlain) : null,
       safeMode,
       allowedEmails,
       expiresAt

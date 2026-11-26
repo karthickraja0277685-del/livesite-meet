@@ -17,6 +17,7 @@ const HEADING_WORDS = [
 
 export default function LandingPage() {
   const [email, setEmail] = useState("");
+  const [websiteTrap, setWebsiteTrap] = useState("");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -31,7 +32,7 @@ export default function LandingPage() {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email, website: websiteTrap })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -93,6 +94,16 @@ export default function LandingPage() {
           onSubmit={handleWaitlistSubmit}
           className="flex w-full max-w-md flex-col sm:flex-row items-center gap-2 rounded-2xl border border-white/15 bg-white/10 p-2 backdrop-blur-md shadow-2xl"
         >
+          <input
+            type="text"
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            value={websiteTrap}
+            onChange={(e) => setWebsiteTrap(e.target.value)}
+            className="sr-only"
+          />
           <input
             type="email"
             required

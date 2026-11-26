@@ -4,6 +4,7 @@ import { AccessToken } from "livekit-server-sdk";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedHost } from "@/lib/auth";
 import { getPlanConfig } from "@/lib/plans";
+import { verifyPasscode } from "@/lib/passcode";
 
 export const runtime = "nodejs";
 
@@ -48,6 +49,9 @@ export async function POST(
   }
 
   const body = await req.json().catch(() => ({}));
+  if (typeof body.website === "string" && body.website.trim().length > 0) {
+    return NextResponse.json({ error: "Blocked by bot protection." }, { status: 403 });
+  }
   let displayName = (body.displayName || "Guest").trim().slice(0, 60) || "Guest";
   const providedPasscode = typeof body.passcode === "string" ? body.passcode.trim() : "";
   const inviteToken = typeof body.inviteToken === "string" ? body.inviteToken.trim() : "";
@@ -157,7 +161,7 @@ export async function POST(
 
   // Anti-raid check 5: Passcode gate (unless host or personal invite)
   if (!isHost && meeting.passcode && !claimedInviteId) {
-    if (!providedPasscode || providedPasscode !== meeting.passcode) {
+    if (!providedPasscode || !verifyPasscode(providedPasscode, meeting.passcode)) {
       return NextResponse.json(
         {
           error: providedPasscode
