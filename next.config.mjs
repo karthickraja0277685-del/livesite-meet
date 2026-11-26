@@ -1,9 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Enable strict mode to catch common React bugs early during development.
   reactStrictMode: true,
   experimental: {
     serverComponentsExternalPackages: ["adm-zip"]
+  },
+  webpack: (config) => {
+    config.resolve.alias.canvas = false;
+    return config;
   }
 };
 
