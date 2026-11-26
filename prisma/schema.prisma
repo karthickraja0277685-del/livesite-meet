@@ -11,28 +11,48 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum PlanTier {
+  FREE
+  PLUS
+  PRO
+}
+
 model User {
-  id        String    @id @default(uuid()) @db.Uuid
-  email     String    @unique
-  name      String?
-  createdAt DateTime  @default(now()) @map("created_at")
-  meetings  Meeting[]
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique
+  name          String?
+  plan          PlanTier  @default(FREE)
+  planUpdatedAt DateTime? @map("plan_updated_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  meetings      Meeting[]
 
   @@map("users")
 }
 
 model Meeting {
-  id             String            @id @default(uuid()) @db.Uuid
-  title          String
-  hostId         String            @map("host_id") @db.Uuid
-  host           User              @relation(fields: [hostId], references: [id], onDelete: Cascade)
-  status         MeetingStatus     @default(ACTIVE)
-  activeUploadId String?           @map("active_upload_id") @db.Uuid
-  createdAt      DateTime          @default(now()) @map("created_at")
-  endedAt        DateTime?         @map("ended_at")
-  expiresAt      DateTime          @map("expires_at")
-  uploads        SiteUpload[]
-  sessions       AttendeeSession[]
+  id               String               @id @default(uuid()) @db.Uuid
+  title            String
+  hostId           String               @map("host_id") @db.Uuid
+  host             User                 @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  status           MeetingStatus        @default(ACTIVE)
+  activeUploadId   String?              @map("active_upload_id") @db.Uuid
+  passcode         String?
+  isLocked         Boolean              @default(false) @map("is_locked")
+  safeMode         Boolean              @default(false) @map("safe_mode")
+  allowedEmails    String[]             @default([]) @map("allowed_emails")
+  bannedUserIds    String[]             @default([]) @map("banned_user_ids")
+  activePdfPath    String?              @map("active_pdf_path")
+  activePdfName    String?              @map("active_pdf_name")
+  activePdfPage    Int                  @default(1) @map("active_pdf_page")
+  stageMode        String               @default("SITE") @map("stage_mode")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  endedAt          DateTime?            @map("ended_at")
+  expiresAt        DateTime             @map("expires_at")
+  uploads          SiteUpload[]
+  sessions         AttendeeSession[]
+  invites          MeetingInvite[]
+  notes            MeetingNote[]
+  chatMessages     MeetingChatMessage[]
 
   @@index([hostId])
   @@index([status, expiresAt])
@@ -45,34 +65,87 @@ enum MeetingStatus {
 }
 
 model SiteUpload {
-  id            String   @id @default(uuid()) @db.Uuid
-  meetingId     String   @map("meeting_id") @db.Uuid
-  meeting       Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  hostId        String   @map("host_id") @db.Uuid
-  storagePrefix String   @map("storage_prefix")
-  fileCount     Int      @map("file_count")
-  totalBytes    Int      @map("total_bytes")
-  fileManifest  Json     @map("file_manifest")
-  createdAt     DateTime @default(now()) @map("created_at")
+  id                String   @id @default(uuid()) @db.Uuid
+  meetingId         String   @map("meeting_id") @db.Uuid
+  meeting           Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  hostId            String   @map("host_id") @db.Uuid
+  uploaderName      String   @default("Host") @map("uploader_name")
+  uploaderSessionId String?  @map("uploader_session_id") @db.Uuid
+  storagePrefix     String   @map("storage_prefix")
+  fileCount         Int      @map("file_count")
+  totalBytes        Int      @map("total_bytes")
+  fileManifest      Json     @map("file_manifest")
+  createdAt         DateTime @default(now()) @map("created_at")
 
   @@index([meetingId])
   @@map("site_uploads")
 }
 
 model AttendeeSession {
-  id               String   @id @default(uuid()) @db.Uuid
-  meetingId        String   @map("meeting_id") @db.Uuid
-  meeting          Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  userId           String?  @map("user_id") @db.Uuid
-  displayName      String   @map("display_name")
-  isHost           Boolean  @default(false) @map("is_host")
+  id               String    @id @default(uuid()) @db.Uuid
+  meetingId        String    @map("meeting_id") @db.Uuid
+  meeting          Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  userId           String?   @map("user_id") @db.Uuid
+  displayName      String    @map("display_name")
+  verifiedEmail    String?   @map("verified_email")
+  isVerified       Boolean   @default(false) @map("is_verified")
+  isHost           Boolean   @default(false) @map("is_host")
+  isBanned         Boolean   @default(false) @map("is_banned")
+  handRaised       Boolean   @default(false) @map("hand_raised")
+  handRaisedAt     DateTime? @map("hand_raised_at")
+  inviteToken      String?   @map("invite_token")
   // Unique random label used as the subdomain: {sessionSubdomain}.sites.example.com
-  sessionSubdomain String   @unique @map("session_subdomain")
-  sessionTokenHash String   @map("session_token_hash")
-  createdAt        DateTime @default(now()) @map("created_at")
+  sessionSubdomain String    @unique @map("session_subdomain")
+  sessionTokenHash String    @map("session_token_hash")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  leftAt           DateTime? @map("left_at")
 
   @@index([meetingId])
   @@map("attendee_sessions")
+}
+
+model MeetingInvite {
+  id               String   @id @default(uuid()) @db.Uuid
+  meetingId        String   @map("meeting_id") @db.Uuid
+  meeting          Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  label            String
+  email            String?
+  token            String   @unique
+  claimedSessionId String?  @map("claimed_session_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([meetingId])
+  @@map("meeting_invites")
+}
+
+model MeetingNote {
+  id              String   @id @default(uuid()) @db.Uuid
+  meetingId       String   @map("meeting_id") @db.Uuid
+  meeting         Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  uploadId        String?  @map("upload_id") @db.Uuid
+  authorName      String   @map("author_name")
+  authorSessionId String?  @map("author_session_id") @db.Uuid
+  pagePath        String   @default("index.html") @map("page_path")
+  viewport        String   @default("DESKTOP")
+  content         String
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([meetingId])
+  @@map("meeting_notes")
+}
+
+model MeetingChatMessage {
+  id              String   @id @default(uuid()) @db.Uuid
+  meetingId       String   @map("meeting_id") @db.Uuid
+  meeting         Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  senderName      String   @map("sender_name")
+  senderSessionId String?  @map("sender_session_id") @db.Uuid
+  isHost          Boolean  @default(false) @map("is_host")
+  message         String
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([meetingId])
+  @@map("meeting_chat_messages")
 }
 
 model Waitlist {

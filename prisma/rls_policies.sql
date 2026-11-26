@@ -109,3 +109,48 @@ CREATE POLICY "storage_host_manage_own_prefix"
     bucket_id = 'meeting-sites'
     AND (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- 8. PHASE 2 TABLES: MEETING_INVITES, MEETING_NOTES, MEETING_CHAT_MESSAGES
+ALTER TABLE public.meeting_invites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.meeting_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.meeting_chat_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "meeting_invites_host_all"
+  ON public.meeting_invites FOR ALL
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.meetings m
+      WHERE m.id = public.meeting_invites.meeting_id
+        AND m.host_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.meetings m
+      WHERE m.id = public.meeting_invites.meeting_id
+        AND m.host_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "meeting_notes_host_select"
+  ON public.meeting_notes FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.meetings m
+      WHERE m.id = public.meeting_notes.meeting_id
+        AND m.host_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "meeting_chat_host_select"
+  ON public.meeting_chat_messages FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.meetings m
+      WHERE m.id = public.meeting_chat_messages.meeting_id
+        AND m.host_id = auth.uid()
+    )
+  );
