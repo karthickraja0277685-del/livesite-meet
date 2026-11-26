@@ -984,6 +984,7 @@ export function MeetingWorkspace({
             value={guestName}
             onChange={(e) => setGuestName(e.target.value)}
             data-testid="guest-name-input"
+            className="w-full rounded-lg border border-white/15 bg-black/50 px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <input
             type="text"
@@ -994,7 +995,6 @@ export function MeetingWorkspace({
             value={websiteTrap}
             onChange={(e) => setWebsiteTrap(e.target.value)}
             className="sr-only"
-            className="w-full rounded-lg border border-white/15 bg-black/50 px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
 
           {requiresPasscode && (
